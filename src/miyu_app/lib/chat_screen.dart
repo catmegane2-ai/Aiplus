@@ -21,6 +21,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   bool _isSending = false;
   bool _uiHidden = false;
+  String? _fullScreenImageUrl; // 画像全画面表示用
 
   @override
   void initState() {
@@ -32,6 +33,56 @@ class _ChatScreenState extends State<ChatScreen> {
         isUser: false,
       ),
     );
+    // xAI APIキー（既存設定があればそちらを利用）
+    const String XAI_API_KEY = '<XAI_API_KEY>'; // TODO: 環境変数や安全な場所から取得する
+    const String XAI_BASE_URL = 'https://api.x.ai';
+  }
+
+  // /imagine エンドポイント（画像生成）
+  Future<Map<String, dynamic>> handleImagine(String prompt) async {
+    final url = Uri.parse('$XAI_BASE_URL/v1/images/generations');
+    try {
+      final res = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $XAI_API_KEY',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'model': 'grok-2-image',
+          'prompt': prompt,
+          'n': 1,
+          'response_format': 'url',
+        }),
+      );
+      if (res.statusCode != 200) {
+        return {
+          'error': 'xAI API error: ${res.statusCode} / ${res.body}',
+          'status': 500,
+        };
+      }
+      final data = jsonDecode(res.body);
+      // xAIのレスポンス例: { data: [ { url: ... } ] }
+      final imageUrl = (data['data'] != null && data['data'].isNotEmpty)
+          ? data['data'][0]['url']
+          : null;
+      if (imageUrl == null) {
+        return {
+          'error': 'No image URL returned from xAI',
+          'status': 500,
+        };
+      }
+      return {
+        'imageUrl': imageUrl,
+        'status': 200,
+      };
+    } catch (e) {
+      return {
+        'error': 'Exception: $e',
+        'status': 500,
+      };
+    }
+  }
   }
 
   @override
@@ -156,10 +207,9 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_isSending) return;
 
     String text = _inputController.text.trim();
-    if (text.isEmpty) {
-      text = 'なにかおまかせでお願い';
-    }
+    if (text.isEmpty) return; // 空欄なら何もしない
 
+    // 1. ユーザーメッセージ追加
     setState(() {
       _messages.add(
         _ChatMessage(
@@ -172,54 +222,26 @@ class _ChatScreenState extends State<ChatScreen> {
     _inputController.clear();
     _scrollToBottom();
 
-    _isSending = true;
-    setState(() {});
-    try {
-      // 画像イベントでも一旦「……」
-      setState(() {
-        _messages.add(
-          const _ChatMessage(
-            text: '……',
-            isUser: false,
-          ),
-        );
-      });
-      _scrollToBottom();
+    // 2. プロンプト組み立て（Miyu_Document.md 5-2, 5-3参照）
+    // TODO: Miyu_Document.mdからテンプレートを参照してAPI連携する
+    final String prompt = 'single portrait, neutral background, basic Miyu style, $text';
 
-      // いまは通常テキストと同じエンドポイントに送る
-      final replyText = await _fetchMiyuReply(text);
+    // 3. ダミー画像URL（後でAPI連携に差し替え）
+    const String dummyImageUrl = 'https://randomuser.me/api/portraits/women/44.jpg'; // TODO: Imagine APIに差し替え
 
-      if (_messages.isNotEmpty &&
-          _messages.last.isUser == false &&
-          _messages.last.text == '……') {
-        _messages.removeLast();
-      }
-
-      if (replyText != null && replyText.isNotEmpty) {
-        setState(() {
-          _messages.add(
-            _ChatMessage(
-              text: replyText,
-              isUser: false,
-              // 将来ここで imageUrl も追加予定
-            ),
-          );
-        });
-      } else {
-        setState(() {
-          _messages.add(
-            const _ChatMessage(
-              text: '（ごめん、うまく返事できなかった…）',
-              isUser: false,
-            ),
-          );
-        });
-      }
-      _scrollToBottom();
-    } finally {
-      _isSending = false;
-      setState(() {});
-    }
+    // 4. 画像イベントメッセージ追加
+    setState(() {
+      _messages.add(
+        _ChatMessage(
+          text: prompt,
+          isUser: false,
+          isImageEvent: true,
+          imageUrl: dummyImageUrl,
+        ),
+      );
+      _fullScreenImageUrl = dummyImageUrl;
+    });
+    _scrollToBottom();
   }
 
   void _toggleUiHidden() {
@@ -270,6 +292,26 @@ class _ChatScreenState extends State<ChatScreen> {
                       const SizedBox(height: 4),
                       _buildInputArea(),
                     ],
+                  ),
+                ),
+              ),
+            // 5. 全画面画像表示
+            if (_fullScreenImageUrl != null)
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _fullScreenImageUrl = null;
+                    });
+                  },
+                  child: Container(
+                    color: Colors.black.withOpacity(0.85),
+                    child: Center(
+                      child: Image.network(
+                        _fullScreenImageUrl!,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -486,8 +528,8 @@ class _MessageBubble extends StatelessWidget {
         isUser ? Alignment.centerRight : Alignment.centerLeft;
 
     final Color bubbleColor = isUser
-        ? const Color.fromRGBO(160, 200, 255, 0.15)
-        : const Color.fromRGBO(255, 180, 210, 0.15);
+        ? Colors.white.withOpacity(0.2)
+        : Colors.black.withOpacity(0.3);
 
     final Color textColor = isUser
         ? const Color(0xFFE9F3FF)

@@ -149,8 +149,37 @@ UI検証用の仮設定
 Flutter App → Node Proxy → Grok API
 （テキスト応答動作確認済み）
 
-### 7-2. 画像生成（未接続）
-Flutter → Node → Imagine API
+### 7-2. 画像生成（Flutter版の現状と設計方針）
+
+本プロジェクトの Flutter 実装における画像生成イベント（ハート送信）は、現状ではダミー画像 URL を用いた UI 動作確認段階にある。Web 版と同様に、最終的には xAI Imagine API を経由して実画像を生成し、イベント表示まで一連のフローを完結させる。
+
+**現状（Flutter版）：**
+- `_handleHeart()` 実行時に固定のダミー画像 URL を使用
+- フルスクリーンオーバーレイ表示とタップ復帰は実装済み
+- イベントは `_ChatMessage` 経由でログに記録される（サムネ表示まで含む）
+- 画像生成自体はまだ API 未接続
+
+**正式な通信経路の方針：**
+- Flutter クライアントは **直接 xAI API を呼び出さない**
+- 画像生成リクエストはすべて Node プロキシ層を経由する
+- API キーは Flutter アプリ内に保持せず、Node 側でのみ管理する
+
+通信経路の概略：
+
+Flutter App（LAN内または公開アプリ）  
+　→ Node Proxy（ローカル `C:\m_proxy` または Render 等）  
+　　→ xAI Imagine API
+
+**セキュリティ要件：**
+- xAI の API キーは `.env` などの外部設定ファイルに保存し、`process.env` から参照する
+- リポジトリやソースコードへのキーのハードコードは禁止
+- Flutter 側に API キー情報を含めない（APK 解析による漏洩を防ぐ）
+
+**今後の実装フェーズ（Flutter版）：**
+1. Node proxy に `/imagine` エンドポイントを新設する  
+2. `.env` に xAI 鍵・ベース URL を定義し、proxy から参照する  
+3. Flutter 側のダミー画像 URL を `/imagine` 呼び出しに置き換える  
+4. Web 版の画像生成仕様（第5章）と整合を取りつつ、イベント表示フローを統一する
 
 
 ### 7-3. 将来：画像も送信
