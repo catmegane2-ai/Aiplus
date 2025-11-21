@@ -172,6 +172,10 @@ Flutter → Node → Imagine API
 - 上部カメラアイコン削除済み
 - ♡＝会話ではなく命令
 - 将来、現在のアバターもプロンプトに付加する方針決定
+・GitHubリポジトリ Aiplus を作成し、仕様書とREADMEを配置
+・Flutterプロジェクトを Aiplus/src/miyu_app に配置
+・ローカル作業ディレクトリを C:\src\Aiplus に統一
+・旧フォルダ C:\src\Aiplus_local はバックアップ扱い（触らない）
 
 ---
 
@@ -186,13 +190,15 @@ Flutter → Node → Imagine API
 
 ## 11. 差分変更ログ
 
-（例）
-
 **2025-11-21**
 - カメラアイコン削除
 - UI暗幕削除
 - 入力エリア改修
 - ハート＝非会話命令として明確化
+### 2025-11-22
+- GitHubリポジトリとローカル環境を接続
+- Flutterプロジェクトを Aiplus/src/miyu_app に移動し、初回コミット
+- 今後の作業ディレクトリを C:\src\Aiplus に固定
 
 ---
 
