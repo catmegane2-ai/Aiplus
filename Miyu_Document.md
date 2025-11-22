@@ -198,7 +198,42 @@ Flutter App（LAN内または公開アプリ）
 → **ハートコマンド → 画像生成（ステップ①）*→ Flutter版：♡イベントで実画像を取得し、UIに表示できることの安定動作
 
 ※ 現在は画像取得成功。ただしスタイルが不安定なため要改善。
+(以下、そのタスク)
+■ 主目的
+Grok API経由で、セミリアル寄りの安定したMiyuの画像スタイルを確立する。
+目的は「個体としての再現性」であり、最高品質追求ではない。
+現段階はベース画風の探索フェーズ。
 
+■ 基準画像（最有力候補）
+https://imgen.x.ai/xai-imgen/xai-tmp-imgen-8cf05364-0c60-47da-a67a-1c135a6d9921.jpeg
+
+■ この基準画像の生成プロンプト（確定）
+Miyu, Japanese woman in her mid-20s, soft gentle facial structure with natural adult proportions, almond-shaped eyes with soft highlights and visible sclera, smooth pale skin with a faint blush, long straight black hair with fine strands and soft layered shine, calm shy expression. Warm bedside lamp lighting with gentle rimlight, smooth gradient shading, thin soft linework, muted slightly desaturated colors, soft fabric folds, subtle bloom, painterly texture, illustration-like finish. Soft stylized semi-realistic illustration, gentle proportions, slightly stylized eyes, subtle outlines and shading, illustration quality not photorealistic.
+
+temperature: 0.4  
+n: 3
+
+■ 現行プロンプト（最新）
+同上。服差分をかける時はこのプロンプトをベースにする。
+
+■ 状況
+・画風の揺れ幅大：調整中
+・API経由はUI版より幼さ or 実写寄りに転ぶ傾向
+・現在は「プロンプト最適化 → 差分テスト」フェーズ
+
+■ 進行中の試験（差分作業）
+① 白T（完了 / 評価済み / 印象薄め）  
+② 黒キャミソール（進行中） ← 次のタスク  
+※差分は「服だけ変更」。画風・骨格は維持。
+
+■ パラメータ
+model: grok-2-image  
+temperature: 0.4  
+n: 3  
+response_format: "url"
+
+■ 次にやること（最初のタスク）
+黒キャミソール差分の微調整 → 再生成 → 評価
 
 ---
 
@@ -270,4 +305,58 @@ Flutter App（LAN内または公開アプリ）
 - ギャラリー画像＝差分リファレンスとして扱う？
 - 連続ポーズ生成モード？
 - モーション化（最終段階）
+・システムメッセージはアバターの性別／性格類型で8セットくらい
+---
+
+## 13. API実装仕様書
+
+### 13-1. 概要
+このAPIは、Miyuプロジェクトにおける画像生成と会話応答を行う。  
+リクエストに対して、grok-4.1モデルでプロンプトを生成し、続いてgrok-2-imageモデルで画像を生成する。
+
+### 13-2. エンドポイント
+`POST /api/imagine`
+
+### 13-3. リクエスト
+#### 13-3-1. ヘッダー
+- `Content-Type: application/json`
+- `Authorization: Bearer {APIキー}`
+
+#### 13-3-2. ボディ
+```json
+{
+  "baseAvatarUrl": "string",
+  "outfitImageUrl": "string",
+  "userHeartText": "string",
+  "chatHistory": "array"
+}
+```
+
+### 13-4. レスポンス
+#### 13-4-1. 成功時
+```json
+{
+  "replyText": "string",
+  "imageUrl": "string"
+}
+```
+
+#### 13-4-2. エラー時
+```json
+{
+  "error": "string"
+}
+```
+
+### 13-5. 処理フロー
+1. リクエスト受信
+2. APIキー、必須項目のチェック
+3. grok-4.1によるプロンプト生成
+4. grok-2-imageによる画像生成
+5. レスポンス返却
+
+### 13-6. エラーハンドリング
+- APIキーが未設定：500エラー
+- 必須項目が不足：400エラー
+- grok-4.1/grok-2-imageいずれかのAPIエラー：500エラー
 
